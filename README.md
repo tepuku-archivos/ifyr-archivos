@@ -1,14 +1,18 @@
-# Archivo Histórico de Inmuebles Fiscales y Religiosos de Rapa Nui 1942-1964
+# Archivo digital — Repositorio técnico
 
-Repositorio de archivos digitales que respaldan el sitio web del proyecto **Archivo Histórico de Inmuebles Fiscales y Religiosos de Rapa Nui 1942-1964**.
+> ⚠️ Este repositorio solo aloja los archivos digitales que sirve el sitio web del proyecto. **No está pensado para ser navegado directamente.**
+>
+> 👉 **Visitá el sitio en https://fiscales-religiosos.tepuku.org**
+>
+> Para explorar el archivo, leer las fichas, ver fotografías y planos, citar o contactarnos, usá el sitio web.
 
-**Sitio web**: https://fiscales-religiosos.tepuku.org
+---
 
-## Sobre el proyecto
+## Proyecto
 
-Este archivo digital documenta nueve inmuebles fiscales y religiosos de Rapa Nui durante el período 1942-1964, correspondiente a la transición administrativa desde la Compañía Explotadora de Isla de Pascua hacia la Armada de Chile y posteriormente al Ministerio de Tierras y Colonización.
+Repositorio de assets del proyecto **Archivo Histórico de Inmuebles Fiscales y Religiosos de Rapa Nui 1942-1964**, una investigación que documenta nueve inmuebles fiscales y religiosos de Rapa Nui durante el período 1942-1964, correspondiente a la transición administrativa desde la Compañía Explotadora de Isla de Pascua hacia la Armada de Chile y posteriormente al Ministerio de Tierras y Colonización.
 
-Los inmuebles documentados son:
+Inmuebles documentados:
 
 | Código | Inmueble |
 |--------|----------|
@@ -24,16 +28,16 @@ Los inmuebles documentados son:
 
 ## Contenido del repositorio
 
-El repositorio contiene 225 archivos digitales organizados en cinco colecciones:
+El repositorio contiene los archivos digitales organizados en cinco colecciones:
 
 ```
 ifyr-archivos/
-├── fichas/                   # Fichas de registro en PDF (24)
-├── fotos/                    # Fotografías históricas (161)
-├── planos-archivador/        # Planos históricos digitalizados (22)
-├── planos-proyecto/          # Láminas técnicas del proyecto (7)
-└── documentos/               # Documentos administrativos (11)
-    └── general/              # Documentos sin caso específico (1)
+├── fichas/                   # Fichas de registro en PDF
+├── fotos/                    # Fotografías históricas
+├── planos-archivador/        # Planos históricos digitalizados
+├── planos-proyecto/          # Láminas técnicas del proyecto
+└── documentos/               # Documentos administrativos
+    └── general/              # Documentos sin caso específico
 ```
 
 ### Tipos de archivo
@@ -44,6 +48,8 @@ ifyr-archivos/
 - **Documentos administrativos**: WebP 1200px con marca de agua diagonal
 - **Fichas de registro**: PDF sin marca de agua
 
+Todos los archivos incluyen metadatos EXIF/XMP embebidos con autoría, copyright y licencia.
+
 ## Equipo de investigación
 
 - Betty Haoa Rapahango
@@ -53,7 +59,7 @@ ifyr-archivos/
 
 ## Institución
 
-**Tepuku - Centro de Investigaciones Aplicadas en Rapa Nui y Otras Islas**  
+**Tepuku - Centro de Investigaciones Aplicadas en Rapa Nui y Otras Islas**
 https://tepuku.org
 
 ## Financiamiento
@@ -71,10 +77,10 @@ Contenido disponible bajo licencia [Creative Commons Atribución-NoComercial 4.0
 ## Cómo citar
 
 ```
-Haoa Rapahango, B.; Basterrica Brockman, T.; Edmunds Hernández, L.; 
-Ramírez González, J. (2026). Archivo Histórico de Inmuebles Fiscales 
-y Religiosos de Rapa Nui 1942-1964 [sitio web]. Tepuku - Centro de 
-Investigaciones Aplicadas en Rapa Nui y Otras Islas. 
+Haoa Rapahango, B.; Basterrica Brockman, T.; Edmunds Hernández, L.;
+Ramírez González, J. (2026). Archivo Histórico de Inmuebles Fiscales
+y Religiosos de Rapa Nui 1942-1964 [sitio web]. Tepuku - Centro de
+Investigaciones Aplicadas en Rapa Nui y Otras Islas.
 https://fiscales-religiosos.tepuku.org. Consultado el [fecha].
 ```
 
@@ -84,4 +90,4 @@ contactotepuku@gmail.com
 
 ---
 
-*Este repositorio aloja los archivos digitales del sitio web. El sitio web completo se encuentra en https://fiscales-religiosos.tepuku.org.*
+*Para acceder al archivo completo, navegá el sitio en https://fiscales-religiosos.tepuku.org. Este repositorio existe solo como CDN técnico de los assets.*
