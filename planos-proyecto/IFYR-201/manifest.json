@@ -1,0 +1,29 @@
+{
+  "inmueble": "IFYR-201",
+  "laminas": [
+    {
+      "archivo": "PLANO-PLAN3D-IFYR-201_1.webp",
+      "descripcion": "Emplazamiento general"
+    },
+    {
+      "archivo": "PLANO-PLAN3D-IFYR-201_2.webp",
+      "descripcion": "Pabellon central - lamina 1"
+    },
+    {
+      "archivo": "PLANO-PLAN3D-IFYR-201_3.webp",
+      "descripcion": "Pabellon central - lamina 2"
+    },
+    {
+      "archivo": "PLANO-PLAN3D-IFYR-201_4.webp",
+      "descripcion": "Pabellon de cronicos"
+    },
+    {
+      "archivo": "PLANO-PLAN3D-IFYR-201_5.webp",
+      "descripcion": "Pabellon de hombres"
+    },
+    {
+      "archivo": "PLANO-PLAN3D-IFYR-201_6.webp",
+      "descripcion": "Pabellon de mujeres"
+    }
+  ]
+}
