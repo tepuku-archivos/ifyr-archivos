@@ -1,0 +1,42 @@
+name: Supabase keep-alive
+
+# Consulta la vista publica cada 3 dias para evitar la pausa
+# automatica del tier gratuito de Supabase (7 dias de inactividad).
+# El commit al log mantiene el workflow activo en GitHub Actions
+# (GitHub desactiva schedules tras 60 dias sin actividad en el repo).
+
+on:
+  schedule:
+    - cron: '0 12 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Consultar Supabase
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://xrbqtjrqvpkplbymmdad.supabase.co/rest/v1/inmuebles_publico?select=*&limit=1" \
+            -H "apikey: sb_publishable_7HpzJkZxTTjISGWi82pKNw_PPC-L5ug")
+          echo "Respuesta HTTP: $STATUS"
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Supabase no respondio 200. Revisar proyecto en el dashboard."
+            exit 1
+          fi
+
+      - name: Registrar en log y commit
+        run: |
+          echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') ping OK" >> keepalive.log
+          tail -n 40 keepalive.log > keepalive.tmp && mv keepalive.tmp keepalive.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add keepalive.log
+          git commit -m "keep-alive: ping Supabase OK"
+          git push
