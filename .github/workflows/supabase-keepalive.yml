@@ -61,6 +61,11 @@ jobs:
           CODE=$(curl -s -o /tmp/restore.txt -w '%{http_code}' --max-time 60 -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/restore" -H "Authorization: Bearer $SB_TOKEN" -H "Content-Type: application/json" -d '{}')
           echo "Management API respondio HTTP $CODE"
           cat /tmp/restore.txt || true
+          if [ "$CODE" = "401" ] || [ "$CODE" = "403" ]; then
+            echo "::error::La Management API rechazo el token (HTTP $CODE). Lo mas probable es que SUPABASE_ACCESS_TOKEN haya vencido o fuera revocado. Renovarlo en https://supabase.com/dashboard/account/tokens y actualizar el secret del repo."
+            echo "recovered=bad-token" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # La restauracion tarda unos minutos: reintentar hasta 10.
           for i in $(seq 1 20); do
@@ -86,6 +91,8 @@ jobs:
             LINE="ping HTTP $PING_STATUS -> RESTAURADO por el workflow"
           elif [ "$RECOVERED" = "no-token" ]; then
             LINE="ping HTTP $PING_STATUS -> FALLO (sin SUPABASE_ACCESS_TOKEN)"
+          elif [ "$RECOVERED" = "bad-token" ]; then
+            LINE="ping HTTP $PING_STATUS -> FALLO (SUPABASE_ACCESS_TOKEN vencido o revocado)"
           else
             LINE="ping HTTP $PING_STATUS -> FALLO, restauracion sin exito"
           fi
