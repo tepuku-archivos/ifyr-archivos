@@ -28,7 +28,10 @@ env:
   PROJECT_REF: xrbqtjrqvpkplbymmdad
   SUPABASE_URL: https://xrbqtjrqvpkplbymmdad.supabase.co
   ANON_KEY: sb_publishable_7HpzJkZxTTjISGWi82pKNw_PPC-L5ug
-  CONSULTA: /rest/v1/inmuebles_publico?select=id&limit=1
+  # select=* y no una columna concreta: la vista puede cambiar de esquema y el
+  # canario no debe romperse por eso (con select=id daba 400, la PK es
+  # id_proyecto). limit=1 mantiene la respuesta minima.
+  CONSULTA: /rest/v1/inmuebles_publico?select=*&limit=1
 
 jobs:
   ping:
@@ -44,9 +47,22 @@ jobs:
           echo "Respuesta HTTP: $STATUS"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
+          # "Vivo" no es lo mismo que "200". Un 4xx significa que PostgREST
+          # contesto: la base esta levantada y la consulta es la que esta mal.
+          # Pedir una restauracion en ese caso seria un falso positivo.
+          # Caido de verdad = sin respuesta (000) o error del servidor (5xx).
+          if [ "$STATUS" = "000" ] || [ "$STATUS" -ge 500 ] 2>/dev/null; then
+            echo "alive=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "alive=yes" >> "$GITHUB_OUTPUT"
+            if [ "$STATUS" != "200" ]; then
+              echo "::warning::Supabase respondio HTTP $STATUS: la base esta viva pero la consulta del canario fallo. Revisar si cambio el esquema de inmuebles_publico."
+            fi
+          fi
+
       - name: Intentar restaurar el proyecto
         id: restore
-        if: steps.ping.outputs.status != '200'
+        if: steps.ping.outputs.alive != 'yes'
         env:
           SB_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PING_STATUS: ${{ steps.ping.outputs.status }}
@@ -84,9 +100,12 @@ jobs:
         env:
           PING_STATUS: ${{ steps.ping.outputs.status }}
           RECOVERED: ${{ steps.restore.outputs.recovered }}
+          ALIVE: ${{ steps.ping.outputs.alive }}
         run: |
-          if [ "$PING_STATUS" = "200" ]; then
+          if [ "$ALIVE" = "yes" ] && [ "$PING_STATUS" = "200" ]; then
             LINE="ping OK"
+          elif [ "$ALIVE" = "yes" ]; then
+            LINE="vivo pero consulta con HTTP $PING_STATUS (revisar esquema)"
           elif [ "$RECOVERED" = "yes" ]; then
             LINE="ping HTTP $PING_STATUS -> RESTAURADO por el workflow"
           elif [ "$RECOVERED" = "no-token" ]; then
@@ -105,7 +124,7 @@ jobs:
           git push
 
       - name: Avisar si el sitio sigue caido
-        if: steps.ping.outputs.status != '200' && steps.restore.outputs.recovered != 'yes'
+        if: steps.ping.outputs.alive != 'yes' && steps.restore.outputs.recovered != 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
           PING_STATUS: ${{ steps.ping.outputs.status }}
@@ -128,5 +147,5 @@ jobs:
           gh issue create --label keepalive --title "Supabase caido: el sitio IFYR esta sin datos" --body-file /tmp/issue.md
 
       - name: Fallar si no se recupero
-        if: steps.ping.outputs.status != '200' && steps.restore.outputs.recovered != 'yes'
+        if: steps.ping.outputs.alive != 'yes' && steps.restore.outputs.recovered != 'yes'
         run: exit 1
