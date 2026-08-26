@@ -1,17 +1,34 @@
 name: Supabase keep-alive
 
-# Consulta la vista publica cada 3 dias para evitar la pausa
-# automatica del tier gratuito de Supabase (7 dias de inactividad).
-# El commit al log mantiene el workflow activo en GitHub Actions
-# (GitHub desactiva schedules tras 60 dias sin actividad en el repo).
+# Mantiene vivo el proyecto Supabase del sitio fiscales-religiosos.tepuku.org
+# (plan Free: se pausa tras ~7 dias de inactividad).
+#
+# Leccion del incidente 2026-08-19/26: la version anterior solo hacia ping.
+# Cuando el proyecto se cayo igual, el ping no pudo hacer nada y fallo en
+# silencio tres corridas seguidas hasta que el sitio aparecio roto. Esta
+# version:
+#   1. pinguea a diario (no cada 3 dias: dos corridas perdidas ya son la pausa)
+#   2. si el ping falla, intenta RESTAURAR el proyecto via Management API
+#   3. si aun asi no levanta, abre un issue para que alguien se entere
+#
+# Requiere el secret SUPABASE_ACCESS_TOKEN (Personal Access Token de
+# https://supabase.com/dashboard/account/tokens). Sin el, el paso de
+# restauracion se salta y el workflow se comporta como la version vieja.
 
 on:
   schedule:
-    - cron: '0 12 */3 * *'
+    - cron: '0 12 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
+  issues: write
+
+env:
+  PROJECT_REF: xrbqtjrqvpkplbymmdad
+  SUPABASE_URL: https://xrbqtjrqvpkplbymmdad.supabase.co
+  ANON_KEY: sb_publishable_7HpzJkZxTTjISGWi82pKNw_PPC-L5ug
+  CONSULTA: /rest/v1/inmuebles_publico?select=id&limit=1
 
 jobs:
   ping:
@@ -21,22 +38,88 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Consultar Supabase
+        id: ping
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://xrbqtjrqvpkplbymmdad.supabase.co/rest/v1/inmuebles_publico?select=*&limit=1" \
-            -H "apikey: sb_publishable_7HpzJkZxTTjISGWi82pKNw_PPC-L5ug")
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$SUPABASE_URL$CONSULTA" -H "apikey: $ANON_KEY")
           echo "Respuesta HTTP: $STATUS"
-          if [ "$STATUS" -ne 200 ]; then
-            echo "Supabase no respondio 200. Revisar proyecto en el dashboard."
-            exit 1
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+      - name: Intentar restaurar el proyecto
+        id: restore
+        if: steps.ping.outputs.status != '200'
+        env:
+          SB_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PING_STATUS: ${{ steps.ping.outputs.status }}
+        run: |
+          if [ -z "$SB_TOKEN" ]; then
+            echo "::warning::Ping fallo (HTTP $PING_STATUS) y no hay SUPABASE_ACCESS_TOKEN configurado. No puedo restaurar."
+            echo "recovered=no-token" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
+          echo "Ping fallo (HTTP $PING_STATUS). Pidiendo restauracion..."
+          CODE=$(curl -s -o /tmp/restore.txt -w '%{http_code}' --max-time 60 -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/restore" -H "Authorization: Bearer $SB_TOKEN" -H "Content-Type: application/json" -d '{}')
+          echo "Management API respondio HTTP $CODE"
+          cat /tmp/restore.txt || true
+
+          # La restauracion tarda unos minutos: reintentar hasta 10.
+          for i in $(seq 1 20); do
+            sleep 30
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$SUPABASE_URL$CONSULTA" -H "apikey: $ANON_KEY")
+            echo "  intento $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "recovered=yes" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "recovered=no" >> "$GITHUB_OUTPUT"
+
       - name: Registrar en log y commit
+        if: always() && steps.ping.conclusion == 'success'
+        env:
+          PING_STATUS: ${{ steps.ping.outputs.status }}
+          RECOVERED: ${{ steps.restore.outputs.recovered }}
         run: |
-          echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') ping OK" >> keepalive.log
-          tail -n 40 keepalive.log > keepalive.tmp && mv keepalive.tmp keepalive.log
+          if [ "$PING_STATUS" = "200" ]; then
+            LINE="ping OK"
+          elif [ "$RECOVERED" = "yes" ]; then
+            LINE="ping HTTP $PING_STATUS -> RESTAURADO por el workflow"
+          elif [ "$RECOVERED" = "no-token" ]; then
+            LINE="ping HTTP $PING_STATUS -> FALLO (sin SUPABASE_ACCESS_TOKEN)"
+          else
+            LINE="ping HTTP $PING_STATUS -> FALLO, restauracion sin exito"
+          fi
+          echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $LINE" >> keepalive.log
+          tail -n 60 keepalive.log > keepalive.tmp && mv keepalive.tmp keepalive.log
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add keepalive.log
-          git commit -m "keep-alive: ping Supabase OK"
+          git diff --staged --quiet || git commit -m "keep-alive: $LINE"
           git push
+
+      - name: Avisar si el sitio sigue caido
+        if: steps.ping.outputs.status != '200' && steps.restore.outputs.recovered != 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PING_STATUS: ${{ steps.ping.outputs.status }}
+        run: |
+          # El label puede no existir todavia; --force lo crea o lo deja igual.
+          gh label create keepalive --description "Avisos del keep-alive de Supabase" --color B60205 --force || true
+          ABIERTOS=$(gh issue list --label keepalive --state open --json number --jq 'length')
+          if [ "$ABIERTOS" != "0" ]; then
+            echo "Ya hay un issue abierto con label keepalive. No abro otro."
+            exit 0
+          fi
+          printf '%s\n' \
+            "El keep-alive no pudo contactar Supabase (HTTP $PING_STATUS) ni restaurar el proyecto automaticamente." \
+            "" \
+            "**Efecto visible:** fiscales-religiosos.tepuku.org carga, pero sin fotos y con el mapa sin marcadores. Los documentos y los textos si se ven, porque estan hardcoded en Lovable y no tocan Supabase." \
+            "" \
+            "**Que hacer:** entrar a https://supabase.com/dashboard/project/$PROJECT_REF y reanudar el proyecto (Restore / Resume)." \
+            "" \
+            "Corrida: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /tmp/issue.md
+          gh issue create --label keepalive --title "Supabase caido: el sitio IFYR esta sin datos" --body-file /tmp/issue.md
+
+      - name: Fallar si no se recupero
+        if: steps.ping.outputs.status != '200' && steps.restore.outputs.recovered != 'yes'
+        run: exit 1
